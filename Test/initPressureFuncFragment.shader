@@ -1,8 +1,8 @@
 # version 330 core
 in vec2 TexCoords;
 
-out vec4 FragColor;
+layout(location = 5) out vec4 pressure0;
 
 void main() {
-	FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+	pressure0 = vec4(0.0, 0.0, 0.0, 1.0);
 }

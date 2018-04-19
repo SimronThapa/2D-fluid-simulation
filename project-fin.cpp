@@ -32,10 +32,10 @@ const GLuint WIDTH = 600, HEIGHT = 600;
 
 const int JACOBI_ITERATIONS = 10;
 const double PI = 3.14159265335987;
-const float deltaT = 1.0 / 120.0f;
+const float deltaT = 1 / 120.0f;
 const float density = 1.0f;
-const float epsilonX = 1 / (float)WIDTH;
-const float epsilonY = 1 / (float)HEIGHT;
+const float epsilonX = 1 / WIDTH;
+const float epsilonY = 1 / HEIGHT;
 double dyeX = -1.0, deltaX = -1.0;
 double dyeY = -1.0, deltaY = -1.0;
 
@@ -79,17 +79,11 @@ int main() {
 	Shader initVelFuncShader("screenVertex.shader", "initVelFuncFragment.shader");
 	Shader initPressureFuncShader("screenVertex.shader", "initPressureFuncFragment.shader");
 	Shader advectShader("screenVertex.shader", "advectFragment.shader");
-	Shader advectColShader("screenVertex.shader", "advectColFragment.shader");
 	Shader addSplatShader("screenVertex.shader", "addSplatFragment.shader");
-	Shader addSplatColShader("screenVertex.shader", "addSplatColFragment.shader");
 	Shader divergenceShader("screenVertex.shader", "divergenceFragment.shader");
 	Shader jacobiIterationShader("screenVertex.shader", "jacobiIterationFragment.shader");
 	Shader subPressureGradientShader("screenVertex.shader", "subPressureGradientFragment.shader");
-	Shader arrowShader("drawArrowVertex.shader", "drawArrowFragment.shader");
-	Shader texVelCopyShader("screenVertex.shader", "texVelCopyFragment.shader");
-	Shader texColCopyShader("screenVertex.shader", "texColCopyFragment.shader");
-	Shader texPresCopyShader("screenVertex.shader", "texPresCopyFragment.shader");
-
+	
 	glLinkProgram(screenShader.Program);
 	screenShader.Use();
 
@@ -101,7 +95,7 @@ int main() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	// Generate texture
-	/*GLuint texColorBuffer;
+	GLuint texColorBuffer;
 	glGenTextures(1, &texColorBuffer);
 	glBindTexture(GL_TEXTURE_2D, texColorBuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -112,7 +106,7 @@ int main() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Attach it to currently bound framebuffer object
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);*/
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
 
 	// Render buffer object (for depth)
 	GLuint rbo;
@@ -130,7 +124,7 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color0, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, color0, 0);
 
 	GLuint color1;
 	glGenTextures(1, &color1);
@@ -140,7 +134,7 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, color1, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, color1, 0);
 
 	GLuint velocity0;
 	glGenTextures(1, &velocity0);
@@ -150,7 +144,7 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, velocity0, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, velocity0, 0);
 
 	GLuint velocity1;
 	glGenTextures(1, &velocity1);
@@ -160,7 +154,7 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, velocity1, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, velocity1, 0);
 
 	GLuint divergence;
 	glGenTextures(1, &divergence);
@@ -170,7 +164,7 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, divergence, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, divergence, 0);
 
 	GLuint pressure0;
 	glGenTextures(1, &pressure0);
@@ -180,7 +174,7 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, pressure0, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, pressure0, 0);
 
 	GLuint pressure1;
 	glGenTextures(1, &pressure1);
@@ -190,14 +184,11 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, pressure1, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT7, GL_TEXTURE_2D, pressure1, 0);
 
-	GLenum drawBuffers[7] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
-		GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, GL_COLOR_ATTACHMENT6 };
-	glDrawBuffers(7, drawBuffers);
-
-	//GLenum readBuffers = GL_COLOR_ATTACHMENT0;
-	//glReadBuffer(readBuffers);
+	//GLenum drawBuffers[8] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3,
+	//							GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7 };
+	//glDrawBuffers(8, drawBuffers);
 
 	// Check that framebuffer is ok
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -214,11 +205,6 @@ int main() {
 		-1.0f,  1.0f,  0.0f, 1.0f,
 		1.0f, -1.0f,  1.0f, 0.0f,
 		1.0f,  1.0f,  1.0f, 1.0f
-
-		/*-1.0f, 1.0f, 0.0f, 1.0f,
-		1.0f, 1.0f, 1.0f, 1.0f,
-		-1.0f, -1.0f, 0.0f, 0.0f,
-		1.0f, -1.0f, 1.0f, 0.0f*/
 	};
 
 	// Screen quad VAO
@@ -228,59 +214,35 @@ int main() {
 	glBindVertexArray(quadVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-
+	
 	// Position attribute
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(0 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(0);
-
+	
 	// Tex coordinate attribute
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
 
-	// Arrow vertices
-	GLfloat arrowMesh[4800];
+	glLinkProgram(initColorFuncShader.Program);
+	initColorFuncShader.Use();
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	copyTex(texColorBuffer, color0, quadVAO);
 
-	glm::vec2 arrowVertices[] = {
-		glm::vec2(0, 0.2),
-		glm::vec2(1, 0),
-		glm::vec2(0, -0.2)
-	};
+	glLinkProgram(initVelFuncShader.Program);
+	initVelFuncShader.Use();
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	copyTex(texColorBuffer, velocity0, quadVAO);
 
-	int INTERVAL = 30;
-	int l = 0;
-
-	for (int i = INTERVAL / 2; i < HEIGHT; i += INTERVAL) {
-		for (int j = INTERVAL / 2; j < WIDTH; j += INTERVAL) {
-			for (int k = 0; k < 3; ++k) {
-				arrowMesh[l] = arrowVertices[k].x;
-				arrowMesh[++l] = arrowVertices[k].y;
-
-				arrowMesh[++l] = 2 * j / (float)WIDTH - 1;
-				arrowMesh[++l] = 2 * i / (float)HEIGHT - 1;
-				++l;
-			}
-		}
-	}
-
-	// Arrow VAO
-	GLuint arrVAO, arrVBO;
-	glGenVertexArrays(1, &arrVAO);
-	glGenBuffers(1, &arrVBO);
-	glBindVertexArray(arrVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, arrVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(arrowMesh), &arrowMesh, GL_STATIC_DRAW);
-
-	// Vertex attribute
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(0 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(0);
-
-	// Position attribute
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(1);
-
-	bool init = true;
-
-	GLuint temp;
+	glLinkProgram(initPressureFuncShader.Program);
+	initPressureFuncShader.Use();
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	copyTex(texColorBuffer, pressure0, quadVAO);
 
 	// Game loop
 	while (!glfwWindowShouldClose(window)) {
@@ -299,27 +261,9 @@ int main() {
 		// Render
 		// Bind to framebuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-		glDisable(GL_DEPTH_TEST);
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		if (init) {
-			initVelFuncShader.Use();
-			glBindVertexArray(quadVAO);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			glBindVertexArray(0);
-
-			initPressureFuncShader.Use();
-			glBindVertexArray(quadVAO);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			glBindVertexArray(0);
-
-			initColorFuncShader.Use();
-			glBindVertexArray(quadVAO);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			glBindVertexArray(0);
-
-			init = false;
-		}
+		glEnable(GL_DEPTH_TEST);
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Advection, result in velocity0
 		glLinkProgram(advectShader.Program);
@@ -328,40 +272,31 @@ int main() {
 		glBindTexture(GL_TEXTURE_2D, velocity0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(advectShader.Program, "inputTexture"), 0);
-		glUniform1f(glGetUniformLocation(advectShader.Program, "velocity"), 1);
-		glUniform1f(glGetUniformLocation(advectShader.Program, "deltaT"), deltaT);
+		glUniform1f(glGetUniformLocation(advectShader.Program, "epsilonX"), epsilonX);
+		glUniform1f(glGetUniformLocation(advectShader.Program, "epsilonY"), epsilonY);
 
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
-		
-		texVelCopyShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, velocity1);
-		glUniform1f(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
 
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		copyTex(velocity0, velocity1, quadVAO);
+		swap(&velocity0, &velocity1);
 
-		/*// Calculate divergence, result in divergence
+		// Calculate divergence, result in divergence
 		glLinkProgram(divergenceShader.Program);
 		divergenceShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(divergenceShader.Program, "velocity"), 0);
 		glUniform1f(glGetUniformLocation(divergenceShader.Program, "epsilonX"), epsilonX);
 		glUniform1f(glGetUniformLocation(divergenceShader.Program, "epsilonY"), epsilonY);
 		glUniform1f(glGetUniformLocation(divergenceShader.Program, "deltaT"), deltaT);
 		glUniform1f(glGetUniformLocation(divergenceShader.Program, "rho"), density);
-
+		
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+
+		copyTex(velocity0, divergence, quadVAO);
 
 		// Calculate pressure, result in pressure0
 		for (int i = 0; i < JACOBI_ITERATIONS; ++i) {
@@ -371,25 +306,15 @@ int main() {
 			glBindTexture(GL_TEXTURE_2D, divergence);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, pressure0);
-			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "divergence"), 0);
-			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "pressure"), 1);
 			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "epsilonX"), epsilonX);
 			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "epsilonY"), epsilonY);
 
 			glBindVertexArray(quadVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
-			glBindTexture(GL_TEXTURE_2D, 0);
 
-			texPresCopyShader.Use();
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, pressure1);
-			glUniform1f(glGetUniformLocation(texPresCopyShader.Program, "pressure1"), 0);
-
-			glBindVertexArray(quadVAO);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			glBindVertexArray(0);
-			glBindTexture(GL_TEXTURE_2D, 0);
+			copyTex(pressure0, pressure1, quadVAO);
+			swap(&pressure0, &pressure1);
 		}
 
 		// Subtract pressure gradient from advected velocity, result in velocity0
@@ -399,85 +324,56 @@ int main() {
 		glBindTexture(GL_TEXTURE_2D, velocity0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, pressure0);
-		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "velocity"), 0);
-		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "pressure"), 1);
 		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "epsilonX"), epsilonX);
 		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "epsilonY"), epsilonY);
 		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "deltaT"), deltaT);
 		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "rho"), density);
-
+		
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
-		texVelCopyShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, velocity1);
-		glUniform1f(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
-
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);*/
+		copyTex(velocity0, velocity1, quadVAO);
+		swap(&velocity0, &velocity1);
 
 		// Advect color field, result in color0
-		glLinkProgram(advectColShader.Program);
-		advectColShader.Use();
+		glLinkProgram(advectShader.Program);
+		advectShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, color0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(advectColShader.Program, "inputTexture"), 0);
-		glUniform1f(glGetUniformLocation(advectColShader.Program, "velocity"), 1);
-		glUniform1f(glGetUniformLocation(advectColShader.Program, "deltaT"), deltaT);
-
+		glUniform1f(glGetUniformLocation(advectShader.Program, "epsilonX"), epsilonX);
+		glUniform1f(glGetUniformLocation(advectShader.Program, "epsilonY"), epsilonY);
+		
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
-		texColCopyShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, color1);
-		glUniform1f(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
-
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		copyTex(color0, color1, quadVAO);
+		swap(&color0, &color1);
 
 		// Dye spots
-		glLinkProgram(addSplatColShader.Program);
-		addSplatColShader.Use();
+		glLinkProgram(addSplatShader.Program);
+		addSplatShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, color0);
-		glUniform1f(glGetUniformLocation(addSplatColShader.Program, "inputTex"), 0);
-		glUniform1f(glGetUniformLocation(addSplatColShader.Program, "radius"), 0.01);
-		glUniform4f(glGetUniformLocation(addSplatColShader.Program, "change"), 0.004, -0.002, -0.002, 0.0);
-		glUniform2f(glGetUniformLocation(addSplatColShader.Program, "center"), 0.2, 0.2);
+		glUniform1f(glGetUniformLocation(addSplatShader.Program, "radius"), 0.01);
+		glUniform4f(glGetUniformLocation(addSplatShader.Program, "change"), 0.004, -0.002, -0.002, 0.0);
+		glUniform2f(glGetUniformLocation(addSplatShader.Program, "center"), 0.2, 0.2);
 
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
-		texColCopyShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, color1);
-		glUniform1f(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
-
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		copyTex(color0, color1, quadVAO);
+		swap(&color0, &color1);
 
 		// Add dye from mouse
 		glLinkProgram(addSplatShader.Program);
 		addSplatShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(addSplatShader.Program, "inputTex"), 0);
 		glUniform1f(glGetUniformLocation(addSplatShader.Program, "radius"), 0.01);
 		glUniform4f(glGetUniformLocation(addSplatShader.Program, "change"), 10.0 * deltaX / WIDTH, -10.0 * deltaY / HEIGHT, 0.0, 0.0);
 		glUniform2f(glGetUniformLocation(addSplatShader.Program, "center"), dyeX, dyeY);
@@ -485,41 +381,29 @@ int main() {
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
-		texVelCopyShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, velocity1);
-		glUniform1f(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
-
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		copyTex(texColorBuffer, velocity0, quadVAO);
+		swap(&velocity0, &velocity1);
+		
+		// Copy to main color buffer
+		//copyTex(color0, texColorBuffer, quadVAO);
 
 		// Bind to default framebuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, WIDTH, HEIGHT);
 		glDisable(GL_DEPTH_TEST);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
 
 		screenShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, color0);
-		glUniform1f(glGetUniformLocation(screenShader.Program, "screenTexture"), 0);
 		glBindVertexArray(quadVAO);
+		glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, color0);
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer); // use the color attachment texture as the texture of the quad plane
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
 		//glUniform2f(glGetUniformLocation(screenShader.Program, "mousePos"), (xpos * 2) / WIDTH - 1, -(ypos * 2) / HEIGHT + 1);
-
-		arrowShader.Use();
-		glBindVertexArray(arrVAO);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glDrawArrays(GL_TRIANGLES, 0, 1200);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
 		glfwSwapBuffers(window);
 	}
@@ -530,6 +414,48 @@ int main() {
 	// Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
 	return 0;
+}
+
+void copyTex(GLuint fromTexture, GLuint toTexture, GLuint VAO) {
+	GLuint tempFBO;
+
+	// Generate framebuffer
+	glGenFramebuffers(1, &tempFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, tempFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fromTexture, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// Update texture
+	glBindFramebuffer(GL_FRAMEBUFFER, tempFBO);
+	glPushAttrib(GL_VIEWPORT_BIT);
+	glViewport(0, 0, WIDTH, HEIGHT);
+
+	// Draw on framebuffer
+	glBindVertexArray(VAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// Copy texture
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, tempFBO);
+	glBindTexture(GL_TEXTURE_2D, toTexture);
+	glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, WIDTH, HEIGHT);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glPopAttrib();
+}
+
+void drawOn(GLuint VAO) {
+	glBindVertexArray(VAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+}
+
+void swap(GLuint* texture1, GLuint* texture2) {
+	GLuint* temp;
+	temp = texture2;
+	texture2 = texture1;
+	texture1 = temp;
 }
 
 // Is called whenever a key is pressed/released via GLFW

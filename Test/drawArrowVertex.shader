@@ -11,7 +11,7 @@ mat2 rot(float angle) {
 }
 
 void main() {
-	vec2 v = texture2D(velocity, (position + 1.0) / 2.0).xy;
+	vec2 v = texture(velocity, (position + 1.0) / 2.0).xy;
 	float scale = 0.05 * length(v);
 	float angle = atan(v.y, v.x);
 	mat2 rotation = rot(-angle);
