@@ -26,14 +26,11 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="project-fin2.cpp">
+    <ClCompile Include="project-fin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="addForceFragment.shader">
-      <Filter>Source Files</Filter>
-    </None>
     <None Include="addSplatFragment.shader">
       <Filter>Source Files</Filter>
     </None>

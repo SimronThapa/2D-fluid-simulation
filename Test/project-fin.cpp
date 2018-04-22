@@ -14,25 +14,39 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+// OpenCV
+#include <opencv2/imgproc/imgproc.hpp> 
+#include <opencv2/core/core.hpp>      
+#include <opencv2/highgui/highgui.hpp>
 using namespace std;
+using namespace cv;
 
 // Other includes
 #include "Shader.h"
+
+// Nuklear
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_IMPLEMENTATION
+#define NK_GLFW_GL2_IMPLEMENTATION
+#include "nuklear.h"
+#include "nuklear_glfw_gl2.h"
 
 // Function prototypes
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, int button, int action, int mods);
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos);
-void copyTex(GLuint fromTexture, GLuint toTexture, GLuint VAO);
-void drawOn(GLuint VAO);
-void swap(GLuint* texture1, GLuint* texture2);
 
 // Window dimensions
-const GLuint WIDTH = 600, HEIGHT = 600;
+const GLuint WIDTH = 600, HEIGHT = 600, SET_WIDTH = 300, SET_HEIGHT = 570;
 
 const int JACOBI_ITERATIONS = 10;
 const double PI = 3.14159265335987;
-const float deltaT = 1.0 / 120.0f;
 const float density = 1.0f;
 const float epsilonX = 1 / (float)WIDTH;
 const float epsilonY = 1 / (float)HEIGHT;
@@ -42,21 +56,43 @@ double dyeY = -1.0, deltaY = -1.0;
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
-bool drag = false;
+
+bool drag = false, velChange = true, colChange = false;
+float deltaT = 1.0 / 120.0f;
+int velID = 0, prevVelID = 0, colID = 0, prevColID = 0, mouseID = 0;
+float dyeRadius = 0.01;
+struct nk_colorf dyeColor;
+
+double area_limit = 700;
+Scalar lowerBound = Scalar(50, 100, 100);  // green
+Scalar upperBound = Scalar(120, 255, 255);
+int posX = 0;
+int posY = 0;
 
 // The MAIN function, from here we start the application and run the game loop
 int main() {
 	// Init GLFW
 	glfwInit();
-	// Set all the required options for GLFW
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Drawing", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "2D Fluid Simulation", NULL, NULL);
+	GLFWwindow* window2 = glfwCreateWindow(SET_WIDTH, SET_HEIGHT, "Settings", NULL, window);
+	int wid = 0, hei = 0;
+	glfwGetWindowSize(window2, &wid, &hei);
 	glfwMakeContextCurrent(window);
+
+	struct nk_context *ctx;
+	ctx = nk_glfw3_init(window2, NK_GLFW3_INSTALL_CALLBACKS);
+	{ struct nk_font_atlas *atlas;
+	nk_glfw3_font_stash_begin(&atlas);
+	nk_glfw3_font_stash_end(); }
+
+	// Set all the required options for GLFW
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+	glfwWindowHint(GLFW_SAMPLES, 24);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(window, key_callback);
@@ -73,6 +109,7 @@ int main() {
 	glDisable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL);
 	glShadeModel(GL_SMOOTH);
 	glHint(GL_FRAGMENT_SHADER_DERIVATIVE_HINT, GL_NICEST);
+	glEnable(GL_MULTISAMPLE);
 
 	// Build and compile our shader program
 	Shader screenShader("screenVertex.shader", "screenFragment.shader");
@@ -102,7 +139,7 @@ int main() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	// Generate texture
-	/*GLuint texColorBuffer;
+	GLuint texColorBuffer;
 	glGenTextures(1, &texColorBuffer);
 	glBindTexture(GL_TEXTURE_2D, texColorBuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -113,7 +150,7 @@ int main() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Attach it to currently bound framebuffer object
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT7, GL_TEXTURE_2D, texColorBuffer, 0);
 
 	// The depth renderbuffer
 	GLuint depthbuffer;
@@ -134,14 +171,14 @@ int main() {
 	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WIDTH, HEIGHT);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);*/
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
 	GLuint color0;
 	glGenTextures(1, &color0);
 	glBindTexture(GL_TEXTURE_2D, color0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color0, 0);
@@ -150,8 +187,8 @@ int main() {
 	glGenTextures(1, &color1);
 	glBindTexture(GL_TEXTURE_2D, color1);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, color1, 0);
@@ -160,8 +197,8 @@ int main() {
 	glGenTextures(1, &velocity0);
 	glBindTexture(GL_TEXTURE_2D, velocity0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, velocity0, 0);
@@ -170,8 +207,8 @@ int main() {
 	glGenTextures(1, &velocity1);
 	glBindTexture(GL_TEXTURE_2D, velocity1);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, velocity1, 0);
@@ -180,8 +217,8 @@ int main() {
 	glGenTextures(1, &divergence);
 	glBindTexture(GL_TEXTURE_2D, divergence);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, divergence, 0);
@@ -190,8 +227,8 @@ int main() {
 	glGenTextures(1, &pressure0);
 	glBindTexture(GL_TEXTURE_2D, pressure0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, pressure0, 0);
@@ -200,8 +237,8 @@ int main() {
 	glGenTextures(1, &pressure1);
 	glBindTexture(GL_TEXTURE_2D, pressure1);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, pressure1, 0);
@@ -218,11 +255,6 @@ int main() {
 		cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	GLfloat px = 1.0 / (float)WIDTH;
-	GLfloat py = 1.0 / (float)HEIGHT;
-	GLfloat x = 1 - px;
-	GLfloat y = 1 - py;
-
 	// Quad vertices to fill screen texture
 	GLfloat quadVertices[] = {
 		// positions   // texCoords
@@ -233,11 +265,6 @@ int main() {
 		-1.0f,  1.0f,  0.0f, 1.0f,
 		1.0f, -1.0f,  1.0f, 0.0f,
 		1.0f,  1.0f,  1.0f, 1.0f
-
-		/*-1.0f, 1.0f, 0.0f, 1.0f,
-		1.0f, 1.0f, 1.0f, 1.0f,
-		-1.0f, -1.0f, 0.0f, 0.0f,
-		1.0f, -1.0f, 1.0f, 0.0f*/
 	};
 
 	// Screen quad VAO
@@ -257,7 +284,8 @@ int main() {
 	glEnableVertexAttribArray(1);
 
 	// Arrow vertices
-	GLfloat arrowMesh[4800];
+	int ARROW_SIZE = 0;
+	GLfloat arrowMesh[100000];
 
 	glm::vec2 arrowVertices[] = {
 		glm::vec2(0, 0.2),
@@ -280,6 +308,7 @@ int main() {
 			}
 		}
 	}
+	ARROW_SIZE = l;
 
 	// Arrow VAO
 	GLuint arrVAO, arrVBO;
@@ -297,14 +326,54 @@ int main() {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
 
-	bool init = true;
+	VideoCapture cap(0);
+	Mat frame;
+	cap >> frame;
 
-	GLuint temp;
+	bool initVel = true, initCol = true;
+	bool showArrow = false;
+	dyeColor.r = 0.1; dyeColor.g = 0.1; dyeColor.b = 0.5;
 
 	// Game loop
 	while (!glfwWindowShouldClose(window)) {
-		// Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
-		glfwPollEvents();
+		// OpenCV camera
+		cap >> frame;
+		flip(frame, frame, 1);
+
+		// Median filter to decrease the background noise
+		medianBlur(frame, frame, 5);
+
+		// Get thresholded image
+		Mat imgHSV = frame.clone();
+		cvtColor(frame, imgHSV, CV_BGR2HSV);	// convert to HSV
+		Mat imgThresh = Mat::zeros(frame.rows, frame.cols, CV_8UC1);
+		inRange(imgHSV, lowerBound, upperBound, imgThresh);
+
+		// Morphological opening (remove small objects from background)
+		erode(imgThresh, imgThresh, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
+		dilate(imgThresh, imgThresh, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
+
+		// Calculate the moments to estimate the position of the object
+		Moments moment = moments(imgThresh);
+
+		// Actual moment values
+		double moment10 = moment.m10;	//extract spatial moment 10
+		double moment01 = moment.m01;	//extract spatial moment 01
+		double area = moment.m00;		//extract central moment 00
+
+		int lastX = posX;
+		int lastY = posY;
+		posX = 0;
+		posY = 0;
+
+		if (moment10 / area >= 0 && moment10 / area < 1280 && moment01 / area >= 0
+			&& moment01 / area < 1280 && area > area_limit) {
+			posX = moment10 / area;
+			posY = moment01 / area;
+		}
+
+		// OpenGL window
+		glfwMakeContextCurrent(window);
 
 		// Per-frame time logic
 		float currentFrame = glfwGetTime();
@@ -320,8 +389,9 @@ int main() {
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glDisable(GL_DEPTH_TEST);
 
-		if (init) {
+		if (initVel) {
 			initVelFuncShader.Use();
+			glUniform1i(glGetUniformLocation(initVelFuncShader.Program, "velID"), velID);
 			glBindVertexArray(quadVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
@@ -331,12 +401,17 @@ int main() {
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
 
+			initVel = false;
+		}
+
+		if (initCol) {
 			initColorFuncShader.Use();
+			glUniform1i(glGetUniformLocation(initColorFuncShader.Program, "colID"), colID);
 			glBindVertexArray(quadVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
 
-			init = false;
+			initCol = false;
 		}
 
 		// Advection, result in velocity0
@@ -432,7 +507,7 @@ int main() {
 		texVelCopyShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, velocity1);
-		glUniform1f(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
+		glUniform1i(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
 
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -458,19 +533,19 @@ int main() {
 		texColCopyShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, color1);
-		glUniform1f(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
+		glUniform1i(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
 
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		// Dye spots
+		/*// Dye spots
 		glLinkProgram(addSplatColShader.Program);
 		addSplatColShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, color0);
-		glUniform1f(glGetUniformLocation(addSplatColShader.Program, "inputTex"), 0);
+		glUniform1i(glGetUniformLocation(addSplatColShader.Program, "inputTex"), 0);
 		glUniform1f(glGetUniformLocation(addSplatColShader.Program, "radius"), 0.01);
 		glUniform4f(glGetUniformLocation(addSplatColShader.Program, "change"), 0.004, -0.002, -0.002, 0.0);
 		glUniform2f(glGetUniformLocation(addSplatColShader.Program, "center"), 0.2, 0.2);
@@ -483,39 +558,67 @@ int main() {
 		texColCopyShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, color1);
-		glUniform1f(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
+		glUniform1i(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
 
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		glBindTexture(GL_TEXTURE_2D, 0);*/
 
 		// Change velocity from mouse
 		if(drag) {
-			glLinkProgram(addSplatShader.Program);
-			addSplatShader.Use();
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, velocity0);
-			glUniform1i(glGetUniformLocation(addSplatShader.Program, "inputTex"), 0);
-			glUniform1f(glGetUniformLocation(addSplatShader.Program, "radius"), 0.01);
-			glUniform4f(glGetUniformLocation(addSplatShader.Program, "change"), 10.0 * deltaX / WIDTH, -10.0 * deltaY / HEIGHT, 0.0, 0.0);
-			glUniform2f(glGetUniformLocation(addSplatShader.Program, "center"), dyeX, dyeY);
+			if (colChange) {
+				glLinkProgram(addSplatColShader.Program);
+				addSplatColShader.Use();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, color0);
+				glUniform1i(glGetUniformLocation(addSplatColShader.Program, "inputTex"), 0);
+				glUniform1f(glGetUniformLocation(addSplatColShader.Program, "radius"), dyeRadius);
+				glUniform4f(glGetUniformLocation(addSplatColShader.Program, "change"), dyeColor.r, dyeColor.g, dyeColor.b, 0.0);
+				glUniform2f(glGetUniformLocation(addSplatColShader.Program, "center"), dyeX, dyeY);
 
-			glBindVertexArray(quadVAO);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			glBindVertexArray(0);
-			glBindTexture(GL_TEXTURE_2D, 0);
+				glBindVertexArray(quadVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindVertexArray(0);
+				glBindTexture(GL_TEXTURE_2D, 0);
+
+				texColCopyShader.Use();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, color1);
+				glUniform1i(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
+
+				glBindVertexArray(quadVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindVertexArray(0);
+				glBindTexture(GL_TEXTURE_2D, 0);
+			}
+			
+			if (velChange) {
+				glLinkProgram(addSplatShader.Program);
+				addSplatShader.Use();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, velocity0);
+				glUniform1i(glGetUniformLocation(addSplatShader.Program, "inputTex"), 0);
+				glUniform1f(glGetUniformLocation(addSplatShader.Program, "radius"), dyeRadius);
+				glUniform4f(glGetUniformLocation(addSplatShader.Program, "change"), 10.0 * deltaX / WIDTH, -10.0 * deltaY / HEIGHT, 0.0, 0.0);
+				glUniform2f(glGetUniformLocation(addSplatShader.Program, "center"), dyeX, dyeY);
+
+				glBindVertexArray(quadVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindVertexArray(0);
+				glBindTexture(GL_TEXTURE_2D, 0);
+
+				texVelCopyShader.Use();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, velocity1);
+				glUniform1i(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
+
+				glBindVertexArray(quadVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindVertexArray(0);
+				glBindTexture(GL_TEXTURE_2D, 0);
+			}
 		}
-
-		texVelCopyShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, velocity1);
-		glUniform1i(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
-
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
 		// Bind to default framebuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -533,16 +636,143 @@ int main() {
 		glBindVertexArray(0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		//glUniform2f(glGetUniformLocation(screenShader.Program, "mousePos"), (xpos * 2) / WIDTH - 1, -(ypos * 2) / HEIGHT + 1);
+		if (showArrow) {
+			arrowShader.Use();
+			glBindVertexArray(arrVAO);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, velocity0);
+			glUniform1i(glGetUniformLocation(arrowShader.Program, "velocity"), 0);
+			glDrawArrays(GL_TRIANGLES, 0, ARROW_SIZE / 4);
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
 
-		arrowShader.Use();
-		glBindVertexArray(arrVAO);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glDrawArrays(GL_TRIANGLES, 0, 1200);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		glfwMakeContextCurrent(window2);
+		
+		// Input
+		glfwPollEvents();
+		nk_glfw3_new_frame();
 
+		// GUI
+		if (nk_begin(ctx, "Lighting", nk_rect(0, 0, SET_WIDTH, SET_HEIGHT), NK_WINDOW_SCALABLE)) {
+			nk_layout_row_dynamic(ctx, 5, 1);
+
+			/*nk_layout_row_begin(ctx, NK_STATIC, 25, 3); {
+				nk_layout_row_push(ctx, 120);
+				nk_label(ctx, "Mouse Change", NK_TEXT_LEFT);
+				nk_layout_row_push(ctx, 80);
+				if (nk_option_label(ctx, "Velocity", velChange == true)) velChange = true;
+				nk_layout_row_push(ctx, 60);
+				if (nk_option_label(ctx, "Colour", velChange == false)) velChange = false;
+			}
+			nk_layout_row_end(ctx);*/
+
+			static const char *mouseChange[] = { "Velocity", "Colour", "Both" };
+			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
+				nk_layout_row_push(ctx, 135);
+				nk_label(ctx, "Mouse Change", NK_TEXT_LEFT);
+				nk_layout_row_push(ctx, 130);
+				mouseID = nk_combo(ctx, mouseChange, NK_LEN(mouseChange), mouseID, 25, nk_vec2(200, 200));
+			}
+			nk_layout_row_end(ctx);
+
+			switch (mouseID) {
+				case 0: velChange = true; colChange = false; break;
+				case 1: velChange = false; colChange = true; break;
+				case 2: velChange = true; colChange = true; break;
+			}
+
+			nk_layout_row_dynamic(ctx, 10, 1);
+
+			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
+				nk_layout_row_push(ctx, 105);
+				nk_label(ctx, "Mouse Radius", NK_TEXT_LEFT);
+				nk_layout_row_push(ctx, 165);
+				nk_slider_float(ctx, 0.001, &dyeRadius, 0.02, 0.001);
+			}
+			nk_layout_row_end(ctx);
+
+			nk_layout_row_dynamic(ctx, 10, 1);
+
+			nk_layout_row_dynamic(ctx, 25, 1);
+			nk_label(ctx, "Mouse Dye Colour", NK_TEXT_LEFT);
+			nk_layout_row_dynamic(ctx, 120, 1);
+			dyeColor = nk_color_picker(ctx, dyeColor, NK_RGB);
+			nk_layout_row_dynamic(ctx, 25, 1);
+			dyeColor.r = nk_propertyf(ctx, "#R:", 0, dyeColor.r, 1.0f, 0.01f, 0.005f);
+			dyeColor.g = nk_propertyf(ctx, "#G:", 0, dyeColor.g, 1.0f, 0.01f, 0.005f);
+			dyeColor.b = nk_propertyf(ctx, "#B:", 0, dyeColor.b, 1.0f, 0.01f, 0.005f);
+
+			nk_layout_row_dynamic(ctx, 10, 1);
+
+			nk_layout_row_begin(ctx, NK_STATIC, 25, 3); {
+				nk_layout_row_push(ctx, 120);
+				nk_label(ctx, "Velocity Arrows", NK_TEXT_LEFT);
+				nk_layout_row_push(ctx, 80);
+				if (nk_option_label(ctx, "Hide", showArrow == false)) showArrow = false;
+				nk_layout_row_push(ctx, 60);
+				if (nk_option_label(ctx, "Show", showArrow == true)) showArrow = true;
+			}
+			nk_layout_row_end(ctx);
+
+			nk_layout_row_dynamic(ctx, 10, 1);
+
+			static const char *velTypes[] = { "Whirlpool", "Linear", "None" };
+			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
+				nk_layout_row_push(ctx, 135);
+				nk_label(ctx, "Velocity Function", NK_TEXT_LEFT);
+				nk_layout_row_push(ctx, 130);
+				velID = nk_combo(ctx, velTypes, NK_LEN(velTypes), velID, 25, nk_vec2(200, 200));
+				if (prevVelID != velID) {
+					prevVelID = velID;
+					initVel = true;
+				}
+			}
+
+			nk_layout_row_dynamic(ctx, 10, 1);
+
+			static const char *colTypes[] = { "None", "Tiled" };
+			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
+				nk_layout_row_push(ctx, 135);
+				nk_label(ctx, "Colour Function", NK_TEXT_LEFT);
+				nk_layout_row_push(ctx, 130);
+				colID = nk_combo(ctx, colTypes, NK_LEN(colTypes), colID, 25, nk_vec2(200, 200));
+				if (prevColID != colID) {
+					prevColID = colID;
+					initCol = true;
+				}
+			}
+
+			nk_layout_row_dynamic(ctx, 10, 1);
+
+			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
+				nk_layout_row_push(ctx, 105);
+				nk_label(ctx, "Simulation Rate", NK_TEXT_LEFT);
+				nk_layout_row_push(ctx, 165);
+				nk_slider_float(ctx, 0.005, &deltaT, 0.02, 0.001);
+			}
+			nk_layout_row_end(ctx);
+
+			nk_layout_row_dynamic(ctx, 15, 1);
+
+			nk_layout_row_dynamic(ctx, 25, 1);
+			if (nk_button_label(ctx, "Reset")) {
+				initVel = true;
+				initCol = true;
+			}
+		}
+		nk_end(ctx);
+
+		// Draw
+		glfwGetWindowSize(window2, &wid, &hei);
+		glViewport(0, 0, wid, hei);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+		nk_glfw3_render(NK_ANTI_ALIASING_ON);
+
+		// Swap the screen buffers
 		glfwSwapBuffers(window);
+		glfwSwapBuffers(window2);
 	}
 
 	glDeleteVertexArrays(1, &quadVAO);

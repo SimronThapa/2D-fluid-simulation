@@ -24,12 +24,4 @@ void main() {
 	float div = cx * (x1 - x0) + cy * (y1 - y0);
 
 	divergence = vec4(div, 0.0, 0.0, 1.0);
-
-	/*float x0 = texture(velocity, TexCoords - vec2(epsilonX, 0)).x;
-	float x1 = texture(velocity, TexCoords + vec2(epsilonX, 0)).x;
-	float y0 = texture(velocity, TexCoords - vec2(0, epsilonY)).y;
-	float y1 = texture(velocity, TexCoords + vec2(0, epsilonY)).y;
-
-	float div = cx * (x1 - x0) + cy * (y1 - y0);
-	divergence = vec4(div, 0, 0, 1.0);*/
 }
