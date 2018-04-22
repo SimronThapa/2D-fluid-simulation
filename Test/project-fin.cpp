@@ -43,7 +43,7 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods);
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos);
 
 // Window dimensions
-const GLuint WIDTH = 600, HEIGHT = 600, SET_WIDTH = 300, SET_HEIGHT = 570;
+const GLuint WIDTH = 600, HEIGHT = 600, SET_WIDTH = 300, SET_HEIGHT = 700;
 
 const int JACOBI_ITERATIONS = 10;
 const double PI = 3.14159265335987;
@@ -63,9 +63,9 @@ int velID = 0, prevVelID = 0, colID = 0, prevColID = 0, mouseID = 0;
 float dyeRadius = 0.01;
 struct nk_colorf dyeColor;
 
-double area_limit = 700;
-Scalar lowerBound = Scalar(50, 100, 100);  // green
-Scalar upperBound = Scalar(120, 255, 255);
+bool useCamera = false;
+double area_limit = 5000;
+struct nk_colorf low, high;
 int posX = 0;
 int posY = 0;
 
@@ -92,7 +92,6 @@ int main() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-	glfwWindowHint(GLFW_SAMPLES, 24);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(window, key_callback);
@@ -162,7 +161,6 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, WIDTH, HEIGHT, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthbuffer, 0);
-
 
 	// Render buffer object (for depth)
 	GLuint rbo;
@@ -327,48 +325,84 @@ int main() {
 
 	VideoCapture cap(0);
 	Mat frame;
+	cap.set(CV_CAP_PROP_FRAME_WIDTH, WIDTH);
+	cap.set(CV_CAP_PROP_FRAME_HEIGHT, HEIGHT);
 	cap >> frame;
 
 	bool initVel = true, initCol = true;
 	bool showArrow = false;
 	dyeColor.r = 0.1; dyeColor.g = 0.1; dyeColor.b = 0.5;
+	low.r = (float)250 / 255; low.g = (float)90 / 255; low.b = (float)120 / 255;
+	high.r = (float)255 / 255; high.g = (float)120 / 255; high.b = (float)140 / 255;
+
+	float low_hsv[3] = { (float)20 / 180, (float)80 / 255, (float)80 / 255 };
+	low = nk_hsva_colorfv(low_hsv);
+
+	float high_hsv[3] = { (float)35 / 180, (float)255 / 255, (float)255 / 255 };
+	high = nk_hsva_colorfv(high_hsv);
 
 	// Game loop
 	while (!glfwWindowShouldClose(window)) {
-		// OpenCV camera
-		cap >> frame;
-		flip(frame, frame, 1);
+		if(useCamera) {
+			// OpenCV camera
+			cap >> frame;
+			flip(frame, frame, 1);
 
-		// Median filter to decrease the background noise
-		medianBlur(frame, frame, 5);
+			// Median filter to decrease the background noise
+			medianBlur(frame, frame, 5);
 
-		// Get thresholded image
-		Mat imgHSV = frame.clone();
-		cvtColor(frame, imgHSV, CV_BGR2HSV);	// convert to HSV
-		Mat imgThresh = Mat::zeros(frame.rows, frame.cols, CV_8UC1);
-		inRange(imgHSV, lowerBound, upperBound, imgThresh);
+			// Get thresholded image
+			Mat imgHSV = frame.clone();
+			cvtColor(frame, imgHSV, CV_BGR2HSV);	// convert to HSV
+			Mat imgThresh = Mat::zeros(frame.rows, frame.cols, CV_8UC1);
 
-		// Morphological opening (remove small objects from background)
-		erode(imgThresh, imgThresh, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-		dilate(imgThresh, imgThresh, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
+			float high_hsv[3], low_hsv[3];
+			nk_colorf_hsva_fv(high_hsv, high);
+			nk_colorf_hsva_fv(low_hsv, low);
 
-		// Calculate the moments to estimate the position of the object
-		Moments moment = moments(imgThresh);
+			Scalar lowerBound = Scalar(low_hsv[0] * 180, low_hsv[1] * 255, low_hsv[2] * 255);
+			Scalar upperBound = Scalar(high_hsv[0] * 180, high_hsv[1] * 255, high_hsv[2] * 255);
+			inRange(imgHSV, lowerBound, upperBound, imgThresh);
 
-		// Actual moment values
-		double moment10 = moment.m10;	//extract spatial moment 10
-		double moment01 = moment.m01;	//extract spatial moment 01
-		double area = moment.m00;		//extract central moment 00
+			// Morphological opening (remove small objects from background)
+			erode(imgThresh, imgThresh, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
+			dilate(imgThresh, imgThresh, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
 
-		int lastX = posX;
-		int lastY = posY;
-		posX = 0;
-		posY = 0;
+			// Calculate the moments to estimate the position of the object
+			Moments moment = moments(imgThresh);
 
-		if (moment10 / area >= 0 && moment10 / area < 1280 && moment01 / area >= 0
-			&& moment01 / area < 1280 && area > area_limit) {
-			posX = moment10 / area;
-			posY = moment01 / area;
+			// Actual moment values
+			double moment10 = moment.m10;	//extract spatial moment 10
+			double moment01 = moment.m01;	//extract spatial moment 01
+			double area = moment.m00;		//extract central moment 00
+
+			int lastX = posX;
+			int lastY = posY;
+			posX = 0;
+			posY = 0;
+
+			if (moment10 / area >= 0 && moment10 / area < 1280 && moment01 / area >= 0
+				&& moment01 / area < 1280 && area > area_limit) {
+				posX = moment10 / area;
+				posY = moment01 / area;
+			}
+
+			deltaX = (float)posX - (float)lastX;
+			deltaY = (float)posY - (float)lastY;
+			dyeX = (float)posX / WIDTH;
+			dyeY = 1 - (float)posY / HEIGHT;
+			
+			double magnitude = sqrt(deltaX * deltaX + deltaY * deltaY);
+			if (magnitude > 0.1 && magnitude < 100)		drag = true;
+			else										drag = false;
+
+			imshow("Threshold", imgThresh);
+			imshow("Video", frame);
+			imgThresh.release();
+			frame.release();
+		}
+		else {
+			destroyAllWindows();
 		}
 
 		// OpenGL window
@@ -628,7 +662,6 @@ int main() {
 		screenShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, color0);
-
 		glUniform1i(glGetUniformLocation(screenShader.Program, "screenTexture"), 0);
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -655,20 +688,60 @@ int main() {
 		if (nk_begin(ctx, "Lighting", nk_rect(0, 0, SET_WIDTH, SET_HEIGHT), NK_WINDOW_SCALABLE)) {
 			nk_layout_row_dynamic(ctx, 5, 1);
 
-			/*nk_layout_row_begin(ctx, NK_STATIC, 25, 3); {
+			nk_layout_row_begin(ctx, NK_STATIC, 25, 3); {
 				nk_layout_row_push(ctx, 120);
-				nk_label(ctx, "Mouse Change", NK_TEXT_LEFT);
+				nk_label(ctx, "Input Mode", NK_TEXT_LEFT);
 				nk_layout_row_push(ctx, 80);
-				if (nk_option_label(ctx, "Velocity", velChange == true)) velChange = true;
+				if (nk_option_label(ctx, "Mouse", useCamera == false)) useCamera = false;
 				nk_layout_row_push(ctx, 60);
-				if (nk_option_label(ctx, "Colour", velChange == false)) velChange = false;
+				if (nk_option_label(ctx, "Webcam", useCamera == true)) useCamera = true;
 			}
-			nk_layout_row_end(ctx);*/
+			nk_layout_row_end(ctx);
+
+			nk_layout_row_dynamic(ctx, 5, 1);
+
+			nk_layout_row_dynamic(ctx, 20, 1);
+			nk_label(ctx, "Lower Bound (webcam)", NK_TEXT_LEFT);
+			nk_layout_row_dynamic(ctx, 25, 1);
+			if (nk_combo_begin_color(ctx, nk_rgb_cf(low), nk_vec2(nk_widget_width(ctx), 400))) {
+				nk_layout_row_dynamic(ctx, 120, 1);
+				low = nk_color_picker(ctx, low, NK_RGB);
+				
+				nk_layout_row_dynamic(ctx, 25, 1);
+				float hsva[3];
+				nk_colorf_hsva_fv(hsva, low);
+				hsva[0] = nk_propertyf(ctx, "#H:", 0, hsva[0], 1.0f, 0.01f, 0.05f);
+				hsva[1] = nk_propertyf(ctx, "#S:", 0, hsva[1], 1.0f, 0.01f, 0.05f);
+				hsva[2] = nk_propertyf(ctx, "#V:", 0, hsva[2], 1.0f, 0.01f, 0.05f);
+				low = nk_hsva_colorfv(hsva);
+				nk_combo_end(ctx);
+			}
+
+			nk_layout_row_dynamic(ctx, 5, 1);
+
+			nk_layout_row_dynamic(ctx, 20, 1);
+			nk_label(ctx, "Upper Bound (webcam)", NK_TEXT_LEFT);
+			nk_layout_row_dynamic(ctx, 25, 1);
+			if (nk_combo_begin_color(ctx, nk_rgb_cf(high), nk_vec2(nk_widget_width(ctx), 400))) {
+				nk_layout_row_dynamic(ctx, 120, 1);
+				high = nk_color_picker(ctx, high, NK_RGB);
+
+				nk_layout_row_dynamic(ctx, 25, 1);
+				float hsva[3];
+				nk_colorf_hsva_fv(hsva, high);
+				hsva[0] = nk_propertyf(ctx, "#H:", 0, hsva[0], 1.0f, 0.01f, 0.05f);
+				hsva[1] = nk_propertyf(ctx, "#S:", 0, hsva[1], 1.0f, 0.01f, 0.05f);
+				hsva[2] = nk_propertyf(ctx, "#V:", 0, hsva[2], 1.0f, 0.01f, 0.05f);
+				high = nk_hsva_colorfv(hsva);
+				nk_combo_end(ctx);
+			}
+
+			nk_layout_row_dynamic(ctx, 5, 1);
 
 			static const char *mouseChange[] = { "Velocity", "Colour", "Both" };
 			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
 				nk_layout_row_push(ctx, 135);
-				nk_label(ctx, "Mouse Change", NK_TEXT_LEFT);
+				nk_label(ctx, "Input Change", NK_TEXT_LEFT);
 				nk_layout_row_push(ctx, 130);
 				mouseID = nk_combo(ctx, mouseChange, NK_LEN(mouseChange), mouseID, 25, nk_vec2(200, 200));
 			}
@@ -680,20 +753,20 @@ int main() {
 				case 2: velChange = true; colChange = true; break;
 			}
 
-			nk_layout_row_dynamic(ctx, 10, 1);
+			nk_layout_row_dynamic(ctx, 5, 1);
 
 			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
 				nk_layout_row_push(ctx, 105);
-				nk_label(ctx, "Mouse Radius", NK_TEXT_LEFT);
+				nk_label(ctx, "Input Radius", NK_TEXT_LEFT);
 				nk_layout_row_push(ctx, 165);
 				nk_slider_float(ctx, 0.001, &dyeRadius, 0.02, 0.001);
 			}
 			nk_layout_row_end(ctx);
 
-			nk_layout_row_dynamic(ctx, 10, 1);
+			nk_layout_row_dynamic(ctx, 5, 1);
 
 			nk_layout_row_dynamic(ctx, 25, 1);
-			nk_label(ctx, "Mouse Dye Colour", NK_TEXT_LEFT);
+			nk_label(ctx, "Input Dye Colour", NK_TEXT_LEFT);
 			nk_layout_row_dynamic(ctx, 120, 1);
 			dyeColor = nk_color_picker(ctx, dyeColor, NK_RGB);
 			nk_layout_row_dynamic(ctx, 25, 1);
@@ -701,7 +774,7 @@ int main() {
 			dyeColor.g = nk_propertyf(ctx, "#G:", 0, dyeColor.g, 1.0f, 0.01f, 0.005f);
 			dyeColor.b = nk_propertyf(ctx, "#B:", 0, dyeColor.b, 1.0f, 0.01f, 0.005f);
 
-			nk_layout_row_dynamic(ctx, 10, 1);
+			nk_layout_row_dynamic(ctx, 5, 1);
 
 			nk_layout_row_begin(ctx, NK_STATIC, 25, 3); {
 				nk_layout_row_push(ctx, 120);
@@ -713,7 +786,7 @@ int main() {
 			}
 			nk_layout_row_end(ctx);
 
-			nk_layout_row_dynamic(ctx, 10, 1);
+			nk_layout_row_dynamic(ctx, 5, 1);
 
 			static const char *velTypes[] = { "Whirlpool", "Linear", "None" };
 			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
@@ -727,7 +800,7 @@ int main() {
 				}
 			}
 
-			nk_layout_row_dynamic(ctx, 10, 1);
+			nk_layout_row_dynamic(ctx, 5, 1);
 
 			static const char *colTypes[] = { "None", "Tiled" };
 			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
@@ -741,7 +814,7 @@ int main() {
 				}
 			}
 
-			nk_layout_row_dynamic(ctx, 10, 1);
+			nk_layout_row_dynamic(ctx, 5, 1);
 
 			nk_layout_row_begin(ctx, NK_STATIC, 25, 2); {
 				nk_layout_row_push(ctx, 105);
@@ -751,7 +824,7 @@ int main() {
 			}
 			nk_layout_row_end(ctx);
 
-			nk_layout_row_dynamic(ctx, 15, 1);
+			nk_layout_row_dynamic(ctx, 10, 1);
 
 			nk_layout_row_dynamic(ctx, 25, 1);
 			if (nk_button_label(ctx, "Reset")) {
@@ -775,6 +848,7 @@ int main() {
 	}
 
 	glDeleteVertexArrays(1, &quadVAO);
+	glDeleteVertexArrays(1, &arrVAO);
 	glDeleteFramebuffers(1, &fbo);
 
 	// Terminate GLFW, clearing any resources allocated by GLFW.
