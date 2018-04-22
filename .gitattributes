@@ -61,3 +61,6 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+nuklear.h linguist-vendored=false
+nuklear_glfw_gl2.h linguist-vendored=false
