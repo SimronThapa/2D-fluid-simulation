@@ -109,7 +109,6 @@ int main() {
 	glDisable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL);
 	glShadeModel(GL_SMOOTH);
 	glHint(GL_FRAGMENT_SHADER_DERIVATIVE_HINT, GL_NICEST);
-	glEnable(GL_MULTISAMPLE);
 
 	// Build and compile our shader program
 	Shader screenShader("screenVertex.shader", "screenFragment.shader");
