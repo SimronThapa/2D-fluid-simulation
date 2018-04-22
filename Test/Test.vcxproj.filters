@@ -70,5 +70,20 @@
     <None Include="drawArrowFragment.shader">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="addSplatColFragment.shader">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="advectColFragment.shader">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="texColCopyFragment.shader">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="texPresCopyFragment.shader">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="texVelCopyFragment.shader">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

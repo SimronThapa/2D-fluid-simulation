@@ -167,7 +167,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="addForceFragment.shader" />
+    <None Include="addSplatColFragment.shader" />
     <None Include="addSplatFragment.shader" />
+    <None Include="advectColFragment.shader" />
     <None Include="advectFragment.shader" />
     <None Include="divergenceFragment.shader" />
     <None Include="drawArrowFragment.shader" />
@@ -179,6 +181,9 @@
     <None Include="screenFragment.shader" />
     <None Include="screenVertex.shader" />
     <None Include="subPressureGradientFragment.shader" />
+    <None Include="texColCopyFragment.shader" />
+    <None Include="texPresCopyFragment.shader" />
+    <None Include="texVelCopyFragment.shader" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

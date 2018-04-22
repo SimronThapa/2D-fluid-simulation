@@ -15,17 +15,10 @@ float p(vec2 coord) {
 }
 
 void main() {
-	/*vec2 u_a = texture(velocity, TexCoords).xy;
+	vec2 u_a = texture(velocity, TexCoords).xy;
 	float diff_p_x = (p(TexCoords + vec2(epsilonX, 0.0)) - p(TexCoords - vec2(epsilonX, 0.0)));
 	float u_x = u_a.x - deltaT / (2.0 * rho * epsilonX) * diff_p_x;
 	float diff_p_y = (p(TexCoords + vec2(0.0, epsilonY)) - p(TexCoords - vec2(0.0, epsilonY)));
 	float u_y = u_a.y - deltaT / (2.0 * rho * epsilonY) * diff_p_y;
-	velocity1 = vec4(u_x, u_y, 0.0, 0.0);*/
-
-	/*float x0 = texture(pressure, TexCoords - vec2(epsilonX, 0)).r;
-	float x1 = texture(pressure, TexCoords + vec2(epsilonX, 0)).r;
-	float y0 = texture(pressure, TexCoords - vec2(0, epsilonY)).r;
-	float y1 = texture(pressure, TexCoords + vec2(0, epsilonY)).r;
-	vec2 v = texture(velocity, TexCoords).xy;
-	velocity1 = vec4((v - (vec2(x1, y1) - vec2(x0, y0))*0.5), 0.0, 1.0);*/
+	velocity1 = vec4(u_x, u_y, 0.0, 0.0);
 }

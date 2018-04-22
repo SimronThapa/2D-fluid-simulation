@@ -42,14 +42,15 @@ double dyeY = -1.0, deltaY = -1.0;
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+bool drag = false;
 
 // The MAIN function, from here we start the application and run the game loop
 int main() {
 	// Init GLFW
 	glfwInit();
 	// Set all the required options for GLFW
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
@@ -69,9 +70,9 @@ int main() {
 
 	// Define the viewport dimensions
 	glViewport(0, 0, WIDTH, HEIGHT);
-	glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL);
+	glDisable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL);
 	glShadeModel(GL_SMOOTH);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	glHint(GL_FRAGMENT_SHADER_DERIVATIVE_HINT, GL_NICEST);
 
 	// Build and compile our shader program
 	Shader screenShader("screenVertex.shader", "screenFragment.shader");
@@ -112,7 +113,20 @@ int main() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Attach it to currently bound framebuffer object
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);*/
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
+
+	// The depth renderbuffer
+	GLuint depthbuffer;
+	glGenTextures(1, &depthbuffer);
+	glBindTexture(GL_TEXTURE_2D, depthbuffer);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_INTENSITY);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, WIDTH, HEIGHT, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthbuffer, 0);
+
 
 	// Render buffer object (for depth)
 	GLuint rbo;
@@ -120,7 +134,7 @@ int main() {
 	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WIDTH, HEIGHT);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);*/
 
 	GLuint color0;
 	glGenTextures(1, &color0);
@@ -176,8 +190,8 @@ int main() {
 	glGenTextures(1, &pressure0);
 	glBindTexture(GL_TEXTURE_2D, pressure0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, pressure0, 0);
@@ -186,8 +200,8 @@ int main() {
 	glGenTextures(1, &pressure1);
 	glBindTexture(GL_TEXTURE_2D, pressure1);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, pressure1, 0);
@@ -203,6 +217,11 @@ int main() {
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	GLfloat px = 1.0 / (float)WIDTH;
+	GLfloat py = 1.0 / (float)HEIGHT;
+	GLfloat x = 1 - px;
+	GLfloat y = 1 - py;
 
 	// Quad vertices to fill screen texture
 	GLfloat quadVertices[] = {
@@ -300,7 +319,6 @@ int main() {
 		// Bind to framebuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glDisable(GL_DEPTH_TEST);
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		if (init) {
 			initVelFuncShader.Use();
@@ -328,8 +346,8 @@ int main() {
 		glBindTexture(GL_TEXTURE_2D, velocity0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(advectShader.Program, "inputTexture"), 0);
-		glUniform1f(glGetUniformLocation(advectShader.Program, "velocity"), 1);
+		glUniform1i(glGetUniformLocation(advectShader.Program, "inputTexture"), 0);
+		glUniform1i(glGetUniformLocation(advectShader.Program, "velocity"), 1);
 		glUniform1f(glGetUniformLocation(advectShader.Program, "deltaT"), deltaT);
 
 		glBindVertexArray(quadVAO);
@@ -340,19 +358,19 @@ int main() {
 		texVelCopyShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, velocity1);
-		glUniform1f(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
+		glUniform1i(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
 
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		/*// Calculate divergence, result in divergence
+		// Calculate divergence, result in divergence
 		glLinkProgram(divergenceShader.Program);
 		divergenceShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(divergenceShader.Program, "velocity"), 0);
+		glUniform1i(glGetUniformLocation(divergenceShader.Program, "velocity"), 0);
 		glUniform1f(glGetUniformLocation(divergenceShader.Program, "epsilonX"), epsilonX);
 		glUniform1f(glGetUniformLocation(divergenceShader.Program, "epsilonY"), epsilonY);
 		glUniform1f(glGetUniformLocation(divergenceShader.Program, "deltaT"), deltaT);
@@ -371,8 +389,8 @@ int main() {
 			glBindTexture(GL_TEXTURE_2D, divergence);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, pressure0);
-			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "divergence"), 0);
-			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "pressure"), 1);
+			glUniform1i(glGetUniformLocation(jacobiIterationShader.Program, "divergence"), 0);
+			glUniform1i(glGetUniformLocation(jacobiIterationShader.Program, "pressure"), 1);
 			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "epsilonX"), epsilonX);
 			glUniform1f(glGetUniformLocation(jacobiIterationShader.Program, "epsilonY"), epsilonY);
 
@@ -384,7 +402,7 @@ int main() {
 			texPresCopyShader.Use();
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, pressure1);
-			glUniform1f(glGetUniformLocation(texPresCopyShader.Program, "pressure1"), 0);
+			glUniform1i(glGetUniformLocation(texPresCopyShader.Program, "pressure1"), 0);
 
 			glBindVertexArray(quadVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -399,8 +417,8 @@ int main() {
 		glBindTexture(GL_TEXTURE_2D, velocity0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, pressure0);
-		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "velocity"), 0);
-		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "pressure"), 1);
+		glUniform1i(glGetUniformLocation(subPressureGradientShader.Program, "velocity"), 0);
+		glUniform1i(glGetUniformLocation(subPressureGradientShader.Program, "pressure"), 1);
 		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "epsilonX"), epsilonX);
 		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "epsilonY"), epsilonY);
 		glUniform1f(glGetUniformLocation(subPressureGradientShader.Program, "deltaT"), deltaT);
@@ -419,7 +437,7 @@ int main() {
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);*/
+		glBindTexture(GL_TEXTURE_2D, 0);
 
 		// Advect color field, result in color0
 		glLinkProgram(advectColShader.Program);
@@ -428,8 +446,8 @@ int main() {
 		glBindTexture(GL_TEXTURE_2D, color0);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(advectColShader.Program, "inputTexture"), 0);
-		glUniform1f(glGetUniformLocation(advectColShader.Program, "velocity"), 1);
+		glUniform1i(glGetUniformLocation(advectColShader.Program, "inputTexture"), 0);
+		glUniform1i(glGetUniformLocation(advectColShader.Program, "velocity"), 1);
 		glUniform1f(glGetUniformLocation(advectColShader.Program, "deltaT"), deltaT);
 
 		glBindVertexArray(quadVAO);
@@ -472,25 +490,27 @@ int main() {
 		glBindVertexArray(0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		// Add dye from mouse
-		glLinkProgram(addSplatShader.Program);
-		addSplatShader.Use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, velocity0);
-		glUniform1f(glGetUniformLocation(addSplatShader.Program, "inputTex"), 0);
-		glUniform1f(glGetUniformLocation(addSplatShader.Program, "radius"), 0.01);
-		glUniform4f(glGetUniformLocation(addSplatShader.Program, "change"), 10.0 * deltaX / WIDTH, -10.0 * deltaY / HEIGHT, 0.0, 0.0);
-		glUniform2f(glGetUniformLocation(addSplatShader.Program, "center"), dyeX, dyeY);
+		// Change velocity from mouse
+		if(drag) {
+			glLinkProgram(addSplatShader.Program);
+			addSplatShader.Use();
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, velocity0);
+			glUniform1i(glGetUniformLocation(addSplatShader.Program, "inputTex"), 0);
+			glUniform1f(glGetUniformLocation(addSplatShader.Program, "radius"), 0.01);
+			glUniform4f(glGetUniformLocation(addSplatShader.Program, "change"), 10.0 * deltaX / WIDTH, -10.0 * deltaY / HEIGHT, 0.0, 0.0);
+			glUniform2f(glGetUniformLocation(addSplatShader.Program, "center"), dyeX, dyeY);
 
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+			glBindVertexArray(quadVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			glBindVertexArray(0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
 
 		texVelCopyShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, velocity1);
-		glUniform1f(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
+		glUniform1i(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
 
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -506,7 +526,8 @@ int main() {
 		screenShader.Use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, color0);
-		glUniform1f(glGetUniformLocation(screenShader.Program, "screenTexture"), 0);
+
+		glUniform1i(glGetUniformLocation(screenShader.Program, "screenTexture"), 0);
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
@@ -538,7 +559,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		glfwSetWindowShouldClose(window, GL_TRUE);
 }
 
-bool drag = false;
 double prevxpos, prevypos;
 
 void mouse_callback(GLFWwindow* window, int button, int action, int mods) {

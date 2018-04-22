@@ -21,19 +21,5 @@ void main() {
 	float x1 = p(TexCoords - vec2(2.0 * epsilonX, 0.0));
 	float y0 = p(TexCoords + vec2(0.0, 2.0 * epsilonY));
 	float y1 = p(TexCoords - vec2(0.0, 2.0 * epsilonY));
-
 	pressure1 = vec4(0.25 * (d(TexCoords) + x0 + x1 + y0 + y1), 0.0, 0.0, 1.0);
-
-	/*float alpha = -1.0;
-	float beta = 0.25;
-
-	float x0 = texture(pressure, TexCoords - vec2(epsilonX, 0)).x;
-	float x1 = texture(pressure, TexCoords + vec2(epsilonX, 0)).x;
-	float y0 = texture(pressure, TexCoords - vec2(0, epsilonY)).x;
-	float y1 = texture(pressure, TexCoords + vec2(0, epsilonY)).x;
-
-	float d = texture(divergence, TexCoords).r;
-	float relaxed = (x0 + x1 + y0 + y1 + alpha * d) * beta;
-
-	pressure1 = vec4(relaxed);*/
 }
