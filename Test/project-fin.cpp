@@ -600,32 +600,6 @@ int main() {
 
 		// Change velocity from mouse
 		if(drag) {
-			if (colChange) {
-				glLinkProgram(addSplatColShader.Program);
-				addSplatColShader.Use();
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, color0);
-				glUniform1i(glGetUniformLocation(addSplatColShader.Program, "inputTex"), 0);
-				glUniform1f(glGetUniformLocation(addSplatColShader.Program, "radius"), dyeRadius);
-				glUniform4f(glGetUniformLocation(addSplatColShader.Program, "change"), dyeColor.r, dyeColor.g, dyeColor.b, 0.0);
-				glUniform2f(glGetUniformLocation(addSplatColShader.Program, "center"), dyeX, dyeY);
-
-				glBindVertexArray(quadVAO);
-				glDrawArrays(GL_TRIANGLES, 0, 6);
-				glBindVertexArray(0);
-				glBindTexture(GL_TEXTURE_2D, 0);
-
-				texColCopyShader.Use();
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, color1);
-				glUniform1i(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
-
-				glBindVertexArray(quadVAO);
-				glDrawArrays(GL_TRIANGLES, 0, 6);
-				glBindVertexArray(0);
-				glBindTexture(GL_TEXTURE_2D, 0);
-			}
-			
 			if (velChange) {
 				glLinkProgram(addSplatShader.Program);
 				addSplatShader.Use();
@@ -645,6 +619,32 @@ int main() {
 				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, velocity1);
 				glUniform1i(glGetUniformLocation(texVelCopyShader.Program, "velocity1"), 0);
+
+				glBindVertexArray(quadVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindVertexArray(0);
+				glBindTexture(GL_TEXTURE_2D, 0);
+			}
+
+			if (colChange) {
+				glLinkProgram(addSplatColShader.Program);
+				addSplatColShader.Use();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, color0);
+				glUniform1i(glGetUniformLocation(addSplatColShader.Program, "inputTex"), 0);
+				glUniform1f(glGetUniformLocation(addSplatColShader.Program, "radius"), dyeRadius);
+				glUniform4f(glGetUniformLocation(addSplatColShader.Program, "change"), dyeColor.r, dyeColor.g, dyeColor.b, 0.0);
+				glUniform2f(glGetUniformLocation(addSplatColShader.Program, "center"), dyeX, dyeY);
+
+				glBindVertexArray(quadVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindVertexArray(0);
+				glBindTexture(GL_TEXTURE_2D, 0);
+
+				texColCopyShader.Use();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, color1);
+				glUniform1i(glGetUniformLocation(texColCopyShader.Program, "color1"), 0);
 
 				glBindVertexArray(quadVAO);
 				glDrawArrays(GL_TRIANGLES, 0, 6);
