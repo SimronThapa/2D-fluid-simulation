@@ -81,6 +81,10 @@ int main() {
 	glfwGetWindowSize(window2, &wid, &hei);
 	glfwMakeContextCurrent(window);
 
+	// Use crosshair cursor
+	GLFWcursor* crosshairCursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+	glfwSetCursor(window, crosshairCursor);
+
 	struct nk_context *ctx;
 	ctx = nk_glfw3_init(window2, NK_GLFW3_INSTALL_CALLBACKS);
 	{ struct nk_font_atlas *atlas;
