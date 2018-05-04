@@ -81,7 +81,7 @@ int main() {
 	glfwGetWindowSize(window2, &wid, &hei);
 	glfwMakeContextCurrent(window);
 
-	// Use crosshair cursor
+	// Change cursor
 	GLFWcursor* crosshairCursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
 	glfwSetCursor(window, crosshairCursor);
 
@@ -402,7 +402,6 @@ int main() {
 
 			if(posX > 0 && posY > 0)
 				glfwSetCursorPos(window, posX, posY);
-			cout << posX << " " << posY << endl;
 
 			imshow("Threshold", imgThresh);
 			imshow("Video", frame);
@@ -868,6 +867,12 @@ int main() {
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
+	if (key == GLFW_KEY_V && action == GLFW_PRESS)
+		mouseID = 0;
+	if (key == GLFW_KEY_C && action == GLFW_PRESS)
+		mouseID = 1;
+	if (key == GLFW_KEY_B && action == GLFW_PRESS)
+		mouseID = 2;
 }
 
 double prevxpos, prevypos;
