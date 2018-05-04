@@ -57,7 +57,7 @@ double dyeY = -1.0, deltaY = -1.0;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-bool drag = false, velChange = true, colChange = false;
+bool drag = false, velChange = true, colChange = false, showArrow = false;
 float deltaT = 1.0 / 120.0f;
 int velID = 0, prevVelID = 0, colID = 0, prevColID = 0, mouseID = 0;
 float dyeRadius = 0.01;
@@ -334,7 +334,6 @@ int main() {
 	cap >> frame;
 
 	bool initVel = true, initCol = true;
-	bool showArrow = false;
 	dyeColor.r = 0.1; dyeColor.g = 0.1; dyeColor.b = 0.5;
 	low.r = (float)250 / 255; low.g = (float)90 / 255; low.b = (float)120 / 255;
 	high.r = (float)255 / 255; high.g = (float)120 / 255; high.b = (float)140 / 255;
@@ -873,6 +872,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		mouseID = 1;
 	if (key == GLFW_KEY_B && action == GLFW_PRESS)
 		mouseID = 2;
+	if (key == GLFW_KEY_A && action == GLFW_PRESS)
+		showArrow = !showArrow;
 }
 
 double prevxpos, prevypos;
