@@ -43,7 +43,7 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods);
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos);
 
 // Window dimensions
-const GLuint WIDTH = 600, HEIGHT = 600, SET_WIDTH = 300, SET_HEIGHT = 700;
+const GLuint WIDTH = 640, HEIGHT = 480, SET_WIDTH = 300, SET_HEIGHT = 700;
 
 const int JACOBI_ITERATIONS = 10;
 const double PI = 3.14159265335987;
@@ -64,7 +64,7 @@ float dyeRadius = 0.01;
 struct nk_colorf dyeColor;
 
 bool useCamera = false;
-double area_limit = 5000;
+double area_limit = 500000;
 struct nk_colorf low, high;
 int posX = 0;
 int posY = 0;
@@ -395,6 +395,10 @@ int main() {
 			double magnitude = sqrt(deltaX * deltaX + deltaY * deltaY);
 			if (magnitude > 0.1 && magnitude < 100)		drag = true;
 			else										drag = false;
+
+			if(posX > 0 && posY > 0)
+				glfwSetCursorPos(window, posX, posY);
+			cout << posX << " " << posY << endl;
 
 			imshow("Threshold", imgThresh);
 			imshow("Video", frame);
